@@ -84,5 +84,50 @@ class BibleUIController extends Controller
             'chapterVerses' => $chapterVerses
         ]);
     }
+    
+    // for searchingscriptures
+    public function searchScripture(Request $request){
+        $q = trim($request->q);
+        if (!$q || strlen($q) < 3) {
+            return response()->json([]);
+        }
+
+        $mode = $request->mode ?? 'phrase';
+        $version = strtoupper($request->version ?? 'KJV');
+
+        $bookModel  = (new BibleBook)->setTableByVersion($version);
+        $verseModel = (new BibleVerse)->setTableByVersion($version);
+
+        if ($mode === 'phrase') {
+            // Exact phrase match
+            $results = $verseModel
+                ->whereRaw("MATCH(text) AGAINST(? IN BOOLEAN MODE)", ['"' . $q . '"'])
+                ->limit(100)
+                ->get();
+        } else {
+            // All words must exist (exact terms)
+            $terms = array_filter(explode(' ', $q));
+            $boolean = implode(' ', array_map(fn($w) => '+' . $w, $terms));
+
+            $results = $verseModel
+                ->whereRaw("MATCH(text) AGAINST(? IN BOOLEAN MODE)", [$boolean])
+                ->limit(100)
+                ->get();
+        }
+
+        $books = $bookModel->pluck('name', 'id');
+
+        return response()->json(
+            $results->map(fn($v) => [
+                'book_id' => $v->book_id,
+                'book'    => $books[$v->book_id] ?? '',
+                'chapter' => $v->chapter,
+                'verse'   => $v->verse,
+                'text'    => $v->text
+            ])
+        );
+    }
+
+
 
 }

@@ -7,23 +7,41 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
     <!-- Bootstrap CDN -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+<!--    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+    -->
+    <link href="{{asset('css/bootstrap-5.3.2.min.css')}}" rel="stylesheet">
+    <link href="{{asset('css/select2.min.css')}}" rel="stylesheet" />
+    
     <style>
         .bible-sidebar {
             position: sticky;
             top: 10px;
             height: calc(100vh - 20px);
             overflow: hidden;
-            background: #fff;
+            border-left: 5px solid #0dcaf0;
+            border-top: 2px solid #0dcaf0;
+            border-right: 2px solid #0dcaf0;
+            border-bottom: 5px solid #0dcaf0;
+            border-radius: 15px; 
+            background-color: #fff; 
             padding: 10px;
             border-right: 1px solid #ddd;
+            min-height: 200px; height: auto
         }
 
         .bible-content {
             height: calc(100vh - 20px);
             overflow-y: auto;
-            padding: 15px;
+            padding: 15px; 
+        }
+        .main-content{
+            border-right: 5px solid #0dcaf0;
+            border-top: 2px solid #0dcaf0;
+            border-left: 1px thin #0dcaf0;
+            border-bottom: 5px solid #0dcaf0;
+            border-radius: 15px; 
+            background-color: #fff; 
         }
     </style>
 
@@ -34,14 +52,23 @@
     <div class="container">
         <a class="navbar-brand" href="/bible">📖 Holy Bible</a>
 
-        <form method="GET" action="/bible/search" class="d-flex">
+        <form method="GET" action="javascript:void(0)" class="d-flex">
             <input
-                class="form-control me-2"
+                class="form-control "                
+                id="scripture-search"
                 name="keyword"
-                placeholder="Search scripture..."
-                required
-            >
-            <button class="btn btn-warning">Search</button>
+                placeholder="Search scripture..." style="font-size:1.2rem; height:45px" />
+            <!--<button class="btn btn-warning">Search</button>-->
+            
+            <div class="btn-group mb-3  w-100"  style="height:45px"  role="group">
+                <input type="radio" class="btn-check" name="searchMode" id="mode-phrase" value="phrase" checked>
+                <label class="btn btn-outline-primary" for="mode-phrase">Phrase</label>
+
+                <input type="radio" class="btn-check" name="searchMode" id="mode-exact" value="exact">
+                <label class="btn btn-outline-primary" for="mode-exact">Exact</label>
+            </div>
+
+            
         </form>
     </div>
 </nav>
@@ -50,8 +77,11 @@
     @yield('content')
 </div>
 <!-- jQuery CDN -->
-    <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
+<!--    <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+    -->
+    <script src="{{asset('js/jquery-3.6.4.min.js')}}"></script>
+    <script src="{{asset('js/select2.min.js')}}"></script>
     <script>
 
         $(function(){
@@ -216,7 +246,14 @@
             });
         }
 
+ 
+        //  for scripture search
         
+        function highlight(q, text) {
+            let words = q.split(/\s+/).join('|');
+            let regex = new RegExp(`(${words})`, 'gi');
+            return text.replace(regex, '<mark>$1</mark>');
+        }
         
         /// handle book and chapter selection after search 
         function loadChapters(book_id, selectedChapter = null, callback = null) {
@@ -246,6 +283,65 @@
                 if (callback) callback();
             });
         }
+        
+        // scripture search
+        $('#scripture-search').on('keyup', function(e){
+            if (e.key !== 'Enter') return;
+
+            let q = $(this).val().trim();
+            if (q.length < 3) return;
+
+            let mode = $('input[name="searchMode"]:checked').val();
+
+            $('#search-results').html('<em>Searching…</em>');
+
+            $.get('{{ route("bible.search.scripture") }}', {
+                q: q,
+                mode: mode,
+                version: currentVersion
+            }, function(res){
+
+                if (res.length === 0) {
+                    $('#search-results').html('<p>No results found.</p>');
+                     $('#verse-content').html('');
+                    return;
+                }
+
+                let html = `<h6>${res.length} Results</h6><ul class="list-group">`;
+
+                res.forEach(r => {
+                    html += `
+                        <li class="list-group-item scripture-result"
+                            data-book="${r.book_id}"
+                            data-chapter="${r.chapter}"
+                            data-verse="${r.verse}">
+                            <strong>${r.book} ${r.chapter}:${r.verse}</strong><br>
+                            ${highlight(q, r.text)}
+                        </li>
+                    `;
+                });
+
+                html += '</ul>';
+                $('#search-results').html(html);
+               
+                
+            });
+        });
+
+        
+        $(document).on('click', '.scripture-result', function(){
+            let book_id = $(this).data('book');
+            let chapter = $(this).data('chapter');
+            let verse   = $(this).data('verse');
+
+            $('#book-select').val(book_id);
+
+            loadChapters(book_id, chapter, function(){
+                $('#verse-input').val(verse);
+                $('#read-btn').click();
+            });
+        });
+
 
     </script>
 </body>
