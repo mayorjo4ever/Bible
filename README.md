@@ -44,6 +44,14 @@ We would like to extend our thanks to the following sponsors for funding Laravel
 
 ## Contributing
 
+## Output Look 
+
+<img width="1294" height="490" alt="bible" src="https://github.com/user-attachments/assets/8bb9fa62-d5a1-4d73-a1d1-f1b2d9d3f695" />
+
+## Auto searching of scriptures  
+- Type Eze 38 - and Hit  Enter Key
+- It will Display the Scripture 
+
 Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
 
 ## Code of Conduct
