@@ -64,7 +64,7 @@ class BibleUIController extends Controller
         $verseModel = (new BibleVerse)->setTableByVersion($version);
 
         $book = $bookModel->find($request->book_id);
-        if (!$book) return response()->json(['error' => 'Book not found']);
+        if (!$book): return response()->json(['error' => 'Book not found']); endif;
 
         // Count max chapters
         $maxChapter = $verseModel->where('book_id', $book->id)->max('chapter');

@@ -308,17 +308,17 @@
                 }
 
                 let html = `<h6>${res.length} Results</h6><ul class="list-group">`;
-
+                let k=1;
                 res.forEach(r => {
                     html += `
                         <li class="list-group-item scripture-result"
                             data-book="${r.book_id}"
                             data-chapter="${r.chapter}"
                             data-verse="${r.verse}">
-                            <strong>${r.book} ${r.chapter}:${r.verse}</strong><br>
+                           <sup>`+k+` </sup> <strong>${r.book} ${r.chapter}:${r.verse}</strong><br>
                             ${highlight(q, r.text)}
                         </li>
-                    `;
+                    `; k++;
                 });
 
                 html += '</ul>';
