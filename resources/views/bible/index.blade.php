@@ -27,14 +27,24 @@
             <input onchange="$('#read-btn').click()" type="number" id="verse-input" class="form-control mb-2" placeholder="Verse (optional)" min="1">
 
             <button id="read-btn" class="btn btn-info w-100 p-2 text-white"><b>Search &nbsp; 📖</b> </button>
-            <button class="btn btn-warning w-100 p-2 mt-3" onclick="$('#search-results').html('')">Clear Search</button>
+            <!--<button style="" class="btn btn-warning text-white w-50 p-2 mt-3" onclick="$('#search-results').html('')"><b>Clear Search</b></button>-->
+            <p class="mt-4">
+            <center><small><b>Daily Scriptures</b></small></center>
+            <div class="input-group">
+                 <input type="date" id="daily-date" class="form-control form-control-lg mb-2">
+                 <button id="daily-go" class="btn btn-info text-white bold" style="height: 48px;"><b>Go</b></button>
+            </div>
+                    
+               
+            </p>
         </div>
     </div>
 
-    <div class="col-md-9 main-content" style="background-color: #fff; margin: 0px;">
+    <div class="col-md-9 main-content" style="background-color: #fff; margin: 0px;">       
         <h4 id="verse-title"  style="font-size: 2.2rem; margin: 10px 5px;">Select a book and chapter</h4> 
         <div id="search-results" class="mb-3" style="font-size: 1.6rem; "></div>
         <div id="verse-content" class="ml-6"  style="font-size: 1.6rem; padding-left: 10px"></div>
+         <div id="daily-reads"></div>
     </div>
 </div>
 

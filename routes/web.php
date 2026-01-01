@@ -16,3 +16,7 @@ Route::get('/bible/book-info', [BibleUIController::class, 'bookInfo'])->name('bi
 Route::get('/bible/search-scripture', [BibleUIController::class, 'searchScripture'])
     ->name('bible.search.scripture');
 
+# get daily read scriptures 
+Route::get('/bible/daily-reads', [BibleUIController::class, 'dailyReads'])
+    ->name('bible.daily.reads');
+

@@ -4,7 +4,12 @@ namespace App\Http\Controllers;
 
 use App\Models\BibleBook;
 use App\Models\BibleVerse;
+use App\Models\VerseRead;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
+use function auth;
+use function response;
+use function today;
 use function view;
 
 class BibleUIController extends Controller
@@ -35,7 +40,19 @@ class BibleUIController extends Controller
             ->when($request->verse, fn($q) => $q->where('verse', $request->verse))
             ->orderBy('verse')
             ->get();
-
+        # log verses read
+        foreach($verses as $v):
+        VerseRead::firstOrCreate(
+          [
+              'version'=>$version,
+              'book_id'=>$v->book_id,
+              'chapter'=>$v->chapter,
+              'verse'=>$v->verse,
+              'read_date'=>Carbon::today()
+            ]      
+        );
+        endforeach;
+        
         return response()->json([
             'book' => $book->name,
             'chapter' => $request->chapter,
@@ -127,7 +144,87 @@ class BibleUIController extends Controller
             ])
         );
     }
+    
+    // get daily reading
+    public function todayRead($date="") {
+        return VerseRead::where('user_id',auth()->id())
+                ->whereDate('read_date',$date)
+                ->get();
+    }
+    
+    public function dailyReads(Request $request)
+        {
+            $date    = $request->date
+                ? Carbon::parse($request->date)
+                : today();
 
+            $version = strtoupper($request->version ?? 'KJV');
+
+            $reads = VerseRead::whereDate('read_date', $date)
+                ->where('version', $version)
+                ->when(auth()->check(), fn($q) => $q->where('user_id', auth()->id()))
+                ->orderBy('book_id')
+                ->orderBy('chapter')
+                ->orderBy('verse')
+                ->get();
+
+            if ($reads->isEmpty()) {
+                return response()->json([]);
+            }
+
+            $bookModel = (new BibleBook)->setTableByVersion($version);
+            $books = $bookModel->pluck('name', 'id');
+
+            // Group nicely
+            $grouped = $reads->groupBy(['book_id', 'chapter']);
+
+            $output = [];
+
+            foreach ($grouped as $bookId => $chapters) {
+                foreach ($chapters as $chapter => $verses) {
+                    $verseNumbers = $verses->pluck('verse')->sort()->values();
+
+                    $output[] = [
+                        'book_id' => $bookId,
+                        'book'    => $books[$bookId] ?? '',
+                        'chapter' => $chapter,
+                        'verses'  => $verseNumbers,
+                        'range'   => $this->formatVerseRange($verseNumbers),
+                    ];
+                }
+            }
+
+            return response()->json($output);
+        }
+
+        private function formatVerseRange($verses)
+        {
+            $ranges = [];
+            $start = null;
+            $prev  = null;
+
+            foreach ($verses as $v) {
+                if ($start === null) {
+                    $start = $prev = $v;
+                } elseif ($v == $prev + 1) {
+                    $prev = $v;
+                } else {
+                    $ranges[] = ($start == $prev)
+                        ? (string) $start
+                        : $start . '-' . $prev;
+
+                    $start = $prev = $v;
+                }
+            }
+
+            if ($start !== null) {
+                $ranges[] = ($start == $prev)
+                    ? (string) $start
+                    : $start . '-' . $prev;
+            }
+
+            return implode(', ', $ranges);
+        }
 
 
 }

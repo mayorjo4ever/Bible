@@ -86,6 +86,13 @@
 
         $(function(){
           
+           // autoloads daily redings  
+            let today = new Date().toISOString().split('T')[0];
+            $('#daily-date').val(today);
+            loadDailyReads(today);
+             
+            
+          
           // Auto-load chapters for the first selected book (Genesis)
             let chapterMax = 1; // default
            
@@ -119,7 +126,10 @@
                         res.verses.forEach(v=>{
                             html += `<p><sup>${v.verse}</sup> ${v.text}</p>`;
                         });
-                        $('#verse-content').html(html);
+                        $('#verse-content').html(html);                                                
+                        $('#search-results,#daily-reads').html('');
+                        // #verse-content,
+
                     }
                 });
             });
@@ -294,7 +304,9 @@
             let mode = $('input[name="searchMode"]:checked').val();
 
             $('#search-results').html('<em>Searching…</em>');
-
+            $('#verse-title').html("<em>Bible Search : </em>"+ q);
+            $('#daily-reads,#verse-content').html('');
+            
             $.get('{{ route("bible.search.scripture") }}', {
                 q: q,
                 mode: mode,
@@ -322,10 +334,11 @@
                 });
 
                 html += '</ul>';
-                $('#search-results').html(html);
-               
+                $('#search-results').html(html);              
                 
             });
+            
+           
         });
 
         
@@ -340,6 +353,51 @@
                 $('#verse-input').val(verse);
                 $('#read-btn').click();
             });
+        });
+        
+        function loadDailyReads(date = null) {
+            $('#daily-reads').html('<em>Loading…</em>');
+            $('#verse-title').html("<em>Today's Scriptures : </em>"+ date);
+            $('#search-results,#verse-content').html('');
+
+            $.get('{{ route("bible.daily.reads") }}', {
+                date,
+                version: currentVersion
+            }, function(data){
+
+                if (!data.length) {
+                    $('#daily-reads').html('<p>No verses read today.</p>');
+                    return;
+                }
+
+                let html = '<ul class="list-group">';
+
+                data.forEach(r => {
+                    html += `
+                        <li class="list-group-item daily-read"
+                            data-book="${r.book_id}"
+                            data-chapter="${r.chapter}"
+                            data-verses="${r.verses.join(',')}">
+                            <strong>${r.book} ${r.chapter}:${r.range}</strong>
+                        </li>
+                    `;
+                });
+
+                html += '</ul>';
+
+                $('#daily-reads').html(html);
+            });
+        }
+        
+        $('#daily-go').on('click', function () {
+            let date = $('#daily-date').val();
+
+            if (!date) {
+                alert('Please select a date');
+                return;
+            }
+
+            loadDailyReads(date);
         });
 
 
