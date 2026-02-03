@@ -24,7 +24,7 @@
             <select id="chapter-select" class="form-select mb-2">
                 <option value="">Select Chapter</option>
             </select>
-            <input onchange="$('#read-btn').click()" type="number" id="verse-input" class="form-control mb-2" placeholder="Verse (optional)" min="1">
+            <input onchange="$('#read-btn').click()" type="number" id="verse-input" class="form-control mb-2" value="1" placeholder="Verse (optional)" min="1">
 
             <button id="read-btn" class="btn btn-info w-100 p-2 text-white"><b>Search &nbsp; 📖</b> </button>
             <!--<button style="" class="btn btn-warning text-white w-50 p-2 mt-3" onclick="$('#search-results').html('')"><b>Clear Search</b></button>-->
