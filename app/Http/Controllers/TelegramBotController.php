@@ -12,99 +12,87 @@ use function str_starts_with;
 
 class TelegramBotController extends Controller
 {
-    public function webhook(Request $request)
-    {
-        $telegram = new Api(env('TELEGRAM_BOT_TOKEN'));
+   public function webhook(Request $request)
+{
+    $telegram = new Api(env('TELEGRAM_BOT_TOKEN'));
+    $update = $request->all();
 
-        $update = $request->all();
+    // HANDLE MESSAGE
+    if (isset($update['message'])) {
+        $chatId = $update['message']['chat']['id'];
+        $text   = trim($update['message']['text'] ?? '');
 
-        // Handle message
-        if (isset($update['message'])) {
-            $chatId = $update['message']['chat']['id'];
-            $text = trim($update['message']['text'] ?? '');
+        // START
+        if ($text === '/start') {
+            $telegram->sendMessage([
+                'chat_id' => $chatId,
+                'text' => "📖 *KJV Bible Bot*\n\nJust type a verse reference:\n\nExamples:\n• John 3:16\n• Matt 28 19\n• Ps 23\n• 1 Cor 13:4",
+                'parse_mode' => 'Markdown'
+            ]);
 
-            if ($text === '/start') {
-                $telegram->sendMessage([
-                    'chat_id' => $chatId,
-                    'text' => "📖 Welcome to the Bible Bot\nType /books to see the list of Bible books"
-                ]);
-            }
-
-            if ($text === '/books') {
-                $books = DB::table('kjv_books')->get();
-                $buttons = [];
-
-                foreach ($books as $book) {
-                    $buttons[][] = [
-                        'text' => $book->name,
-                        'callback_data' => 'book_'.$book->id
-                    ];
-                }
-
-                $telegram->sendMessage([
-                    'chat_id' => $chatId,
-                    'text' => '📘 Select a Bible Book:',
-                    'reply_markup' => json_encode([
-                        'inline_keyboard' => $buttons
-                    ])
-                ]);
-            }
+            return response()->json(['ok' => true]);
         }
 
-        // Handle button callback
-        if (isset($update['callback_query'])) {
-            $callback = $update['callback_query']['data'];
-            $chatId = $update['callback_query']['message']['chat']['id'];
+        // SMART VERSE SEARCH
+        if (preg_match('/^([1-3]?\s?[A-Za-z]+)\s+(\d+)(?::|\s)?(\d+)?$/i', $text, $matches)) {
 
-            // Book selected → show chapters
-            if (str_starts_with($callback, 'book_')) {
-                $bookId = str_replace('book_', '', $callback);
+            $bookInput = trim($matches[1]);
+            $chapter   = (int) $matches[2];
+            $verse     = isset($matches[3]) ? (int) $matches[3] : null;
 
-                $chapters = DB::table('bible_chapters')
-                    ->where('book_id', $bookId)
-                    ->get();
+            $book = DB::table('kjv_books')
+                ->where('name', 'like', $bookInput.'%')
+                ->first();
 
-                $buttons = [];
-                foreach ($chapters as $ch) {
-                    $buttons[][] = [
-                        'text' => 'Chapter '.$ch->chapter_number,
-                        'callback_data' => 'chapter_'.$bookId.'_'.$ch->chapter_number
-                    ];
-                }
 
+            if (!$book) {
                 $telegram->sendMessage([
                     'chat_id' => $chatId,
-                    'text' => '📖 Select a Chapter:',
-                    'reply_markup' => json_encode([
-                        'inline_keyboard' => $buttons
-                    ])
+                    'text' => "❌ Book not found. Try: John 3:16"
+                ]);
+                return response()->json(['ok' => true]);
+            }
+
+            $query = DB::table('kjv_verses')
+                ->where('book_id', $book->id)
+                ->where('chapter', $chapter);
+
+            if ($verse) {
+                $query->where('verse', $verse);
+            }
+
+            $verses = $query->orderBy('verse')->get();
+
+            if ($verses->isEmpty()) {
+                $telegram->sendMessage([
+                    'chat_id' => $chatId,
+                    'text' => "❌ No verses found."
+                ]);
+                return response()->json(['ok' => true]);
+            }
+
+            $response = "📖 {$book->name} {$chapter}";
+            if ($verse) $response .= ":$verse";
+            $response .= "\n\n";
+
+            foreach ($verses as $v) {
+                $response .= "{$v->verse}. {$v->text}\n\n";
+            }
+
+            foreach (str_split($response, 3500) as $chunk) {
+                $telegram->sendMessage([
+                    'chat_id' => $chatId,
+                    'text' => $chunk
                 ]);
             }
 
-            // Chapter selected → show first 10 verses
-            if (str_starts_with($callback, 'chapter_')) {
-                [$x, $bookId, $chapter] = explode('_', $callback);
-
-                $verses = DB::table('bible_verses')
-                    ->where('book_id', $bookId)
-                    ->where('chapter', $chapter)
-                    ->limit(10)
-                    ->get();
-
-                $text = "";
-                foreach ($verses as $v) {
-                    $text .= "{$v->verse}. {$v->text}\n\n";
-                }
-
-                $telegram->sendMessage([
-                    'chat_id' => $chatId,
-                    'text' => $text
-                ]);
-            }
+            return response()->json(['ok' => true]);
         }
-
-        return response()->json(['ok' => true]);
     }
+
+    return response()->json(['ok' => true]);
+}
+  
 }
 
 //

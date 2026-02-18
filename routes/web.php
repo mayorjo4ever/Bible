@@ -20,10 +20,10 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
     // return view('welcome');
-    return redirect('/bible');
+    return redirect('/bible/web');
 });
 
- Route::get('/bible', [BibleUIController::class, 'index'])->name('bible.index');
+ Route::get('/bible/web', [BibleUIController::class, 'index'])->name('bible.index');
 Route::match(['get','post'], '/bible/read', [BibleUIController::class, 'readAjax'])->name('bible.read.ajax');
 Route::get('/bible/search-books', [BibleUIController::class, 'searchBooks'])->name('bible.search.books');
 Route::get('/bible/book-info', [BibleUIController::class, 'bookInfo'])->name('bible.book.info');
@@ -39,6 +39,6 @@ Route::get('/bible/daily-reads', [BibleUIController::class, 'dailyReads'])
 //        [\Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class]
 //);
 //
-//Route::post('/bible', [TelegramBotController::class, 'webhook'])->withoutMiddleware(
-//        [\Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class]
-//);
+ Route::post('/bible', [TelegramBotController::class, 'webhook'])->withoutMiddleware(
+         [\Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class]
+ );
