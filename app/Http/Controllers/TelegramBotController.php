@@ -12,13 +12,18 @@ use function str_starts_with;
 
 class TelegramBotController extends Controller
 {
-   public function webhook(Request $request)
-{
+   public function webhook(Request $request){
+       
     $telegram = new Api(env('TELEGRAM_BOT_TOKEN'));
     $update = $request->all();
 
-    // HANDLE MESSAGE
+    /*
+    |--------------------------------------------------------------------------
+    | 1️⃣ HANDLE NORMAL MESSAGE
+    |--------------------------------------------------------------------------
+    */
     if (isset($update['message'])) {
+
         $chatId = $update['message']['chat']['id'];
         $text   = trim($update['message']['text'] ?? '');
 
@@ -26,14 +31,13 @@ class TelegramBotController extends Controller
         if ($text === '/start') {
             $telegram->sendMessage([
                 'chat_id' => $chatId,
-                'text' => "📖 *KJV Bible Bot*\n\nJust type a verse reference:\n\nExamples:\n• John 3:16\n• Matt 28 19\n• Ps 23\n• 1 Cor 13:4",
+                'text' => "📖 *KJV Bible Bot*\n\nType: John 3:16",
                 'parse_mode' => 'Markdown'
             ]);
 
             return response()->json(['ok' => true]);
         }
 
-        // SMART VERSE SEARCH
         if (preg_match('/^([1-3]?\s?[A-Za-z]+)\s+(\d+)(?::|\s)?(\d+)?$/i', $text, $matches)) {
 
             $bookInput = trim($matches[1]);
@@ -44,55 +48,106 @@ class TelegramBotController extends Controller
                 ->where('name', 'like', $bookInput.'%')
                 ->first();
 
-
-            if (!$book) {
-                $telegram->sendMessage([
-                    'chat_id' => $chatId,
-                    'text' => "❌ Book not found. Try: John 3:16"
-                ]);
+            if (!$book || !$verse) {
                 return response()->json(['ok' => true]);
             }
 
-            $query = DB::table('kjv_verses')
+            $verseData = DB::table('kjv_verses')
                 ->where('book_id', $book->id)
-                ->where('chapter', $chapter);
+                ->where('chapter', $chapter)
+                ->where('verse', $verse)
+                ->first();
 
-            if ($verse) {
-                $query->where('verse', $verse);
-            }
-
-            $verses = $query->orderBy('verse')->get();
-
-            if ($verses->isEmpty()) {
-                $telegram->sendMessage([
-                    'chat_id' => $chatId,
-                    'text' => "❌ No verses found."
-                ]);
+            if (!$verseData) {
                 return response()->json(['ok' => true]);
             }
 
-            $response = "📖 {$book->name} {$chapter}";
-            if ($verse) $response .= ":$verse";
-            $response .= "\n\n";
+            $response = "📖 {$book->name} {$chapter}:{$verse}\n\n{$verseData->text}";
 
-            foreach ($verses as $v) {
-                $response .= "{$v->verse}. {$v->text}\n\n";
-            }
-
-            foreach (str_split($response, 3500) as $chunk) {
-                $telegram->sendMessage([
-                    'chat_id' => $chatId,
-                    'text' => $chunk
-                ]);
-            }
+            $telegram->sendMessage([
+                'chat_id' => $chatId,
+                'text' => $response,
+                'reply_markup' => json_encode([
+                    'inline_keyboard' => [
+                        [
+                            [
+                                'text' => '⬅️ Prev',
+                                'callback_data' => 'prev_'.$book->id.'_'.$chapter.'_'.$verse
+                            ],
+                            [
+                                'text' => '➡️ Next',
+                                'callback_data' => 'next_'.$book->id.'_'.$chapter.'_'.$verse
+                            ]
+                        ]
+                    ]
+                ])
+            ]);
 
             return response()->json(['ok' => true]);
         }
     }
 
+    /*
+    |--------------------------------------------------------------------------
+    | 2️⃣ HANDLE CALLBACK (MUST BE OUTSIDE MESSAGE BLOCK)
+    |--------------------------------------------------------------------------
+    */
+    if (isset($update['callback_query'])) {
+
+        $callback = $update['callback_query']['data'];
+        $chatId = $update['callback_query']['message']['chat']['id'];
+        $messageId = $update['callback_query']['message']['message_id'];
+
+        $telegram->answerCallbackQuery([
+            'callback_query_id' => $update['callback_query']['id']
+        ]);
+
+        if (str_starts_with($callback, 'next_') || str_starts_with($callback, 'prev_')) {
+
+            [$action, $bookId, $chapter, $verse] = explode('_', $callback);
+
+            $verse = (int) $verse;
+
+            if ($action === 'next') $verse++;
+            if ($action === 'prev' && $verse > 1) $verse--;
+
+            $verseData = DB::table('kjv_verses')
+                ->where('book_id', $bookId)
+                ->where('chapter', $chapter)
+                ->where('verse', $verse)
+                ->first();
+
+            if (!$verseData) return response()->json(['ok' => true]);
+
+            $book = DB::table('kjv_books')->where('id', $bookId)->first();
+
+            $text = "📖 {$book->name} {$chapter}:{$verse}\n\n{$verseData->text}";
+
+            $telegram->editMessageText([
+                'chat_id' => $chatId,
+                'message_id' => $messageId,
+                'text' => $text,
+                'reply_markup' => json_encode([
+                    'inline_keyboard' => [
+                        [
+                            [
+                                'text' => '⬅️ Prev',
+                                'callback_data' => 'prev_'.$bookId.'_'.$chapter.'_'.$verse
+                            ],
+                            [
+                                'text' => '➡️ Next',
+                                'callback_data' => 'next_'.$bookId.'_'.$chapter.'_'.$verse
+                            ]
+                        ]
+                    ]
+                ])
+            ]);
+        }
+    }
+
     return response()->json(['ok' => true]);
 }
-  
+
 }
 
 //
